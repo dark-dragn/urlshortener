@@ -1,12 +1,16 @@
 require('dotenv').config();
-console.log(process.env.DB_URL) 
+
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const {MongoClient}=require('mongodb');
+const dns=require('dns')
+const urlparser=require('url')
 // Basic Configuration
 const cleint= new MongoClient(process.env.DB_URL);
+
 const db=cleint.db("urlshortener")
+
 const urls=db.collection("url")
 const port = process.env.PORT || 3000;
 
@@ -26,7 +30,27 @@ app.get('/api/hello', function(req, res) {
 });
 app.post('/api/shorturl', function(req, res) {
   console.log(req.body);
-  res.json({ greeting: 'hello API' });
+  const url=req.body.url;
+  const dnslookup=dns.lookup(urlparser.parse(url).hostname,
+    async(err,address)=>{
+      if(!address){
+        res.json({error:'Invalid Url'})
+      }
+      else{
+        const urlCount=await urls.countDocuments({})
+        const urlDoc={
+          url,
+          short_url:urlCount
+        }
+        const result=await urls.insertOne(urlDoc)
+        console.log(result);
+        res.json(
+          {original_url:url, short_url:urlCount}
+        )
+      }
+    }
+  )
+ 
 });
 
 
